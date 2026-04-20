@@ -1,0 +1,1 @@
+ALTER TABLE "Teacher" ADD COLUMN IF NOT EXISTS "middleInitial" TEXT;

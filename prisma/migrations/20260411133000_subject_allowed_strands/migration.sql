@@ -1,0 +1,1 @@
+ALTER TABLE "Subject" ADD COLUMN IF NOT EXISTS "allowedStrands" TEXT;

@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+}
+
+enum Trimester {
+  FIRST
+  SECOND
+  THIRD
+}
+
+model Teacher {
+  id                   String                  @id @default(cuid())
+  employeeId           String                  @unique
+  title                String                  @default("Mr.")
+  employmentType       String                  @default("Full-Time")
+  firstName            String
+  middleInitial        String?
+  lastName             String
+  department           String?
+  specialization       String?
+  maxWeeklyLoadHours   Float                   @default(24)
+  isActive             Boolean                 @default(true)
+  sectionsAdvised      Section[]               @relation("SectionAdviser")
+  scheduleAssignments  ScheduleAssignment[]
+  sectionTeachingAssignments SectionTeachingAssignment[]
+  subjectRules         TeacherSubjectRule[]
+  availabilityBlocks   TeacherAvailability[]
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+}
+
+model Subject {
+  id                  String               @id @default(cuid())
+  code                String               @unique
+  gradeLevel          String               @default("Grade 11")
+  name                String
+  subjectType         String               @default("Core")
+  allowDoublePeriod   Boolean              @default(false)
+  sessionLengthHours  Float                @default(1.5)
+  weeklyHours         Int
+  preferredRoomType   String?
+  allowedStrands      String?
+  trimester           Trimester            @default(FIRST)
+  scheduleAssignments ScheduleAssignment[]
+  sectionTeachingAssignments SectionTeachingAssignment[]
+  teacherRules        TeacherSubjectRule[]
+  sectionPlans        SectionSubjectPlan[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model ScheduleSettings {
+  id                  String   @id @default("default")
+  schoolDayStart      String   @default("06:45")
+  schoolDayEnd        String   @default("14:30")
+  homeroomStart       String   @default("06:45")
+  homeroomEnd         String   @default("07:15")
+  recessStart         String   @default("09:15")
+  recessEnd           String   @default("09:45")
+  lunchStart          String   @default("12:45")
+  lunchEnd            String   @default("13:30")
+  slotStepMinutes     Int      @default(15)
+  schedulerProfile    String   @default("BALANCED")
+  preferEarlierSlots  Boolean  @default(true)
+  avoidLateAfternoon  Boolean  @default(true)
+  balanceSubjectDays  Boolean  @default(true)
+  compactStudentDays  Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model TimetablePeriod {
+    id        String   @id @default(cuid())
+    gradeLevel String  @default("Grade 11")
+    label     String
+    startTime String
+    endTime   String
+    kind      String   @default("CLASS")
+    sortOrder Int      @default(0)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([gradeLevel, sortOrder])
+  }
+
+model Section {
+  id                  String               @id @default(cuid())
+  gradeLevel          String
+  strand              String
+  name                String
+  parentSectionId     String?
+  parentSection       Section?             @relation("SectionHierarchy", fields: [parentSectionId], references: [id])
+  childSections       Section[]            @relation("SectionHierarchy")
+  adviserTeacherId    String?
+  adviserTeacher      Teacher?             @relation("SectionAdviser", fields: [adviserTeacherId], references: [id])
+  assignedRoomId      String?
+  assignedRoom        Room?                @relation("SectionAssignedRoom", fields: [assignedRoomId], references: [id])
+  scheduleAssignments ScheduleAssignment[]
+  sectionTeachingAssignments SectionTeachingAssignment[]
+  subjectPlans        SectionSubjectPlan[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@unique([gradeLevel, strand, name])
+}
+
+model Room {
+  id                  String               @id @default(cuid())
+  code                String               @unique
+  name                String
+  roomType            String?
+  capacity            Int?
+  assignedSections    Section[]            @relation("SectionAssignedRoom")
+  scheduleAssignments ScheduleAssignment[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model SchoolTerm {
+  id                  String               @id @default(cuid())
+  schoolYear          String
+  termName            String
+  isActive            Boolean              @default(false)
+  scheduleAssignments ScheduleAssignment[]
+  sectionTeachingAssignments SectionTeachingAssignment[]
+  sectionPlans        SectionSubjectPlan[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@unique([schoolYear, termName])
+}
+
+model ScheduleAssignment {
+  id           String     @id @default(cuid())
+  teacherId    String
+  subjectId    String
+  sectionId    String
+  roomId       String
+  schoolTermId String
+  dayOfWeek    DayOfWeek
+  startTime    String
+  endTime      String
+  isLocked     Boolean    @default(false)
+  teacher      Teacher    @relation(fields: [teacherId], references: [id])
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+  section      Section    @relation(fields: [sectionId], references: [id])
+  room         Room       @relation(fields: [roomId], references: [id])
+  schoolTerm   SchoolTerm @relation(fields: [schoolTermId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model TeacherSubjectRule {
+  id             String   @id @default(cuid())
+  teacherId      String
+  subjectId      String
+  maxSections    Int?
+  maxWeeklyHours Float?
+  teacher        Teacher  @relation(fields: [teacherId], references: [id])
+  subject        Subject  @relation(fields: [subjectId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([teacherId, subjectId])
+}
+
+model TeacherAvailability {
+  id        String    @id @default(cuid())
+  teacherId String
+  dayOfWeek DayOfWeek
+  startTime String
+  endTime   String
+  teacher   Teacher   @relation(fields: [teacherId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model SectionSubjectPlan {
+  id           String     @id @default(cuid())
+  sectionId    String
+  subjectId    String
+  schoolTermId String
+  deliveryScope String    @default("COMMON")
+  weeklyHours  Int?
+  section      Section    @relation(fields: [sectionId], references: [id])
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+  schoolTerm   SchoolTerm @relation(fields: [schoolTermId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([sectionId, subjectId, schoolTermId])
+}
+
+model SectionTeachingAssignment {
+  id           String     @id @default(cuid())
+  teacherId    String
+  subjectId    String
+  sectionId    String
+  schoolTermId String
+  teacher      Teacher    @relation(fields: [teacherId], references: [id])
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+  section      Section    @relation(fields: [sectionId], references: [id])
+  schoolTerm   SchoolTerm @relation(fields: [schoolTermId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([teacherId, subjectId, sectionId, schoolTermId])
+}
